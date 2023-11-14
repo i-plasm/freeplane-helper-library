@@ -170,6 +170,11 @@ public class FreeplaneIOHelper {
     }
     File mapDir = mapFile.getParentFile();
 
+    // Ajustment for windows
+    if (Compat.isWindowsOS() && urlOrPath.toLowerCase().startsWith("c:/")) {
+      urlOrPath = "file:///" + urlOrPath;
+    }
+
     // When resource url begins with 'file:' scheme. Adjusting slashes for compatibility with most
     // OS
     if (urlOrPath.indexOf("file:/") == 0) {
