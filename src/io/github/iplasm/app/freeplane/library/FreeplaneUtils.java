@@ -55,6 +55,10 @@ public class FreeplaneUtils {
     return ResourceController.getResourceController().getFreeplaneUserDirectory();
   }
 
+  public static String getProperty(String string) {
+    return ResourceController.getResourceController().getProperty(string);
+  }
+
   public static boolean getBooleanProperty(String string) {
     return ResourceController.getResourceController().getBooleanProperty(string);
   }

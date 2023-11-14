@@ -26,7 +26,7 @@ import org.freeplane.features.url.UrlManager;
 import org.freeplane.main.application.Browser;
 import org.freeplane.n3.nanoxml.XMLException;
 import org.freeplane.n3.nanoxml.XMLParseException;
-import io.github.iplasm.library.java.commons.SwingAwtTools;
+import io.github.iplasm.library.java.commons.IOUtils;
 import io.github.iplasm.library.java.commons.TextUtils;
 
 /**
@@ -84,19 +84,15 @@ public class FreeplaneIOHelper {
     method.invoke(new UrlManager(), nodeAndMapReference);
   }
 
-  public static void openResourceUsingFreeplaneBroswer(String urlOrPath, URI uri,
-      URI uriForPossibleRelativePath)
-      throws ClassNotFoundException, NoSuchMethodException, SecurityException,
-      IllegalAccessException, IllegalArgumentException, InvocationTargetException {
-    if (isFreeplaneAltBrowserMethodAvailable()) {
-      attemptToOpenResourceWithFreeplaneAlternativeBrowser(urlOrPath, uri,
-          uriForPossibleRelativePath);
+  public static void openResourceUsingFreeplaneBroswer(URI uri) throws IOException {
+    if (uri != null && uri.getScheme() != null && uri.getScheme().equalsIgnoreCase("file")
+        && !new File(uri).exists()) {
+      throw new IOException("The file resource does not seem to exist.");
+    }
+    if (uri != null) {
+      new Browser().openDocument(new Hyperlink(uri));
     } else {
-      if (uriForPossibleRelativePath != null) {
-        new Browser().openDocument(new Hyperlink(uriForPossibleRelativePath));
-      } else {
-        throw new IllegalArgumentException();
-      }
+      throw new IllegalArgumentException();
     }
   }
 
@@ -241,45 +237,55 @@ public class FreeplaneIOHelper {
 
       @Override
       public void run() {
+
         if (uri == null && uriForPossibleRelativePath == null) {
           showResourceCouldNotBeOpenPrompt(null);
         }
+
+        // Case: when desktop is supported and the OS is either Windows or Mac
         if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)
             && (Compat.isMacOsX() || Compat.isWindowsOS())) {
           try {
-            SwingAwtTools.browseURLOrPathViaDesktop(uri);
+            IOUtils.browseURLOrPathViaDesktop(uri);
           } catch (IOException e) {
+
             if (uriForPossibleRelativePath != null) {
 
               try {
-                SwingAwtTools.browseURLOrPathViaDesktop(uriForPossibleRelativePath);
+                IOUtils.browseURLOrPathViaDesktop(uriForPossibleRelativePath);
               } catch (IOException e1) {
-                // Now attempting with the Freeplane method for browsing resources
-                if (!isFreeplaneAltBrowserMethodAvailable()) {
-                  showResourceCouldNotBeOpenPrompt(e1);
-                } else {
+                // uriForPossibleRelativePath: Now attempting with alternative methods for browsing
+                // resources
+                if (Compat.isWindowsOS()) {
                   try {
-                    openResourceUsingFreeplaneBroswer(urlOrPath, uri, uriForPossibleRelativePath);
-                  } catch (ClassNotFoundException | NoSuchMethodException | SecurityException
-                      | IllegalAccessException | IllegalArgumentException
-                      | InvocationTargetException e2) {
+                    openResourceUsingFreeplaneBroswer(uriForPossibleRelativePath);
+                  } catch (IOException e2) {
                     showResourceCouldNotBeOpenPrompt(e2);
                   }
+                } else {
+                  alternativeOpen(uriForPossibleRelativePath);
                 }
               }
-            } else {
-              // Now attempting with the Freeplane methods for browsing resources
-              try {
 
-                openResourceUsingFreeplaneBroswer(urlOrPath, uri, uriForPossibleRelativePath);
-              } catch (ClassNotFoundException | NoSuchMethodException | SecurityException
-                  | IllegalAccessException | IllegalArgumentException
-                  | InvocationTargetException e1) {
-                showResourceCouldNotBeOpenPrompt(e1);
+            } else {
+              // uri: Now attempting with alternative methods for browsing resources
+              if (Compat.isWindowsOS()) {
+                try {
+                  openResourceUsingFreeplaneBroswer(uri);
+                } catch (IOException e1) {
+                  showResourceCouldNotBeOpenPrompt(e1);
+                }
+              } else {
+                alternativeOpen(uri);
               }
             }
+
           }
-        } else {
+        }
+        // Case: when desktop is not supported and/or the OS is neither Windows nor Mac
+        else {
+          // Pre-check in case the resource is a file that doesn't exist, since the
+          // command below may not throw an exception that we could use to inform the user
           if (uriForPossibleRelativePath != null
               && uriForPossibleRelativePath.getScheme().equalsIgnoreCase("file")
               && !new File(uriForPossibleRelativePath).exists()) {
@@ -287,20 +293,29 @@ public class FreeplaneIOHelper {
             // Intentionally not returning here, to try a very last time in case the method
             // 'File...exists()' did not give an accurate result
           }
-          try {
-            openResourceUsingFreeplaneBroswer(urlOrPath, uri, uriForPossibleRelativePath);
-          } catch (ClassNotFoundException | NoSuchMethodException | SecurityException
-              | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
-            showResourceCouldNotBeOpenPrompt(e);
-          }
+
+          URI uriToTry = uriForPossibleRelativePath == null ? uri : uriForPossibleRelativePath;
+          alternativeOpen(uriToTry);
         }
       }
 
-      public void showResourceCouldNotBeOpenPrompt(Exception e) {
+      void showResourceCouldNotBeOpenPrompt(Exception e) {
         String exceptionMsg = e == null ? "" : e.getMessage();
         JOptionPane.showMessageDialog(UITools.getCurrentFrame(),
             feedbackMessage + System.lineSeparator() + System.lineSeparator() + urlOrPath
                 + System.lineSeparator() + System.lineSeparator() + exceptionMsg);
+      }
+
+      void alternativeOpen(URI uriToTry) {
+        try {
+          if (!Compat.isMacOsX() && !Compat.isWindowsOS()) {
+            altOpenOtherOS(uriToTry, false);
+          } else if (Compat.isMacOsX()) {
+            altOpenMacOS(uriToTry, false);
+          }
+        } catch (IOException e) {
+          showResourceCouldNotBeOpenPrompt(e);
+        }
       }
 
     });
@@ -360,6 +375,32 @@ public class FreeplaneIOHelper {
       urlManager.loadHyperlink(new Hyperlink(uri));
     } catch (RuntimeException e) {
       throw new RuntimeException(e.getMessage());
+    }
+  }
+
+
+  public static void altOpenOtherOS(URI uriToTry, boolean shouldWaitFor) throws IOException {
+    try {
+      IOUtils.openViaOSCommand(uriToTry.toString(),
+          FreeplaneUtils.getProperty("default_browser_command_other_os"), shouldWaitFor);
+    } catch (IOException e) {
+      System.err.println("Caught: " + e);
+      throw new IOException(e);
+    }
+  }
+
+  public static void altOpenMacOS(URI uriToTry, boolean shouldWaitFor) throws IOException {
+    String uriString = uriToTry.toString();
+    if (uriToTry.getScheme().equals("file")) {
+      uriString = uriToTry.getPath().toString();
+    }
+
+    try {
+      IOUtils.openViaOSCommand(uriString, FreeplaneUtils.getProperty("default_browser_command_mac"),
+          shouldWaitFor);
+    } catch (IOException e) {
+      System.err.println("Caught: " + e);
+      throw new IOException(e);
     }
   }
 
