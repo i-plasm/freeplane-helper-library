@@ -18,22 +18,24 @@ import org.freeplane.core.ui.components.UITools;
 import org.freeplane.core.util.Compat;
 import org.freeplane.core.util.Hyperlink;
 import org.freeplane.features.link.LinkController;
+import org.freeplane.features.map.NodeModel;
 import org.freeplane.features.mode.Controller;
 import org.freeplane.features.mode.ModeController;
+import org.freeplane.features.ui.IMapViewManager;
 import org.freeplane.features.url.FreeplaneUriConverter;
 import org.freeplane.features.url.NodeAndMapReference;
 import org.freeplane.features.url.UrlManager;
 import org.freeplane.main.application.Browser;
 import org.freeplane.n3.nanoxml.XMLException;
 import org.freeplane.n3.nanoxml.XMLParseException;
-import io.github.iplasm.library.java.commons.IOUtils;
-import io.github.iplasm.library.java.commons.TextUtils;
+import io.github.iplasm.library.jhelperutils.IOUtils;
+import io.github.iplasm.library.jhelperutils.TextUtils;
 
 /**
  * 
  * This class depends on the external lib:
  * 
- * java-commons (Website: https://github.com/i-plasm/java-commons/)
+ * java-commons (Github: https://github.com/i-plasm/jhelperutils/)
  * 
  */
 public class FreeplaneIOHelper {
@@ -407,6 +409,27 @@ public class FreeplaneIOHelper {
       System.err.println("Caught: " + e);
       throw new IOException(e);
     }
+  }
+
+  public static String getURIForNode(NodeModel nodeModel) {
+    String fileBasedUri =
+        nodeModel.getMap().getFile().toURI().toString() + '#' + nodeModel.createID();
+    FreeplaneUriConverter freeplaneUriConverter = new FreeplaneUriConverter();
+    return freeplaneUriConverter.freeplaneUriForFile(fileBasedUri);
+  }
+
+  public static String getURIForCurrentMap() {
+    String fileBasedUri =
+        FreeplaneUtils.getSelectedNodeModel().getMap().getFile().toURI().toString();
+    FreeplaneUriConverter freeplaneUriConverter = new FreeplaneUriConverter();
+    return freeplaneUriConverter.freeplaneUriForFile(fileBasedUri);
+  }
+
+  public static boolean tryToChangeToMapIfOpened(URI uri) throws MalformedURLException {
+    FreeplaneUriConverter freeplaneUriConverter = new FreeplaneUriConverter();
+    final URL url = freeplaneUriConverter.freeplaneUrl(uri);
+    IMapViewManager mapViewManager = Controller.getCurrentController().getMapViewManager();
+    return mapViewManager.tryToChangeToMapView(url);
   }
 
 

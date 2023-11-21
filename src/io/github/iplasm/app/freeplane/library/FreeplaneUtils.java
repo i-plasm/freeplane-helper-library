@@ -3,11 +3,14 @@ package io.github.iplasm.app.freeplane.library;
 import java.awt.EventQueue;
 import java.io.File;
 import java.util.Arrays;
+import java.util.List;
 import java.util.regex.Pattern;
 import org.freeplane.api.FreeplaneVersion;
 import org.freeplane.api.Node;
 import org.freeplane.core.resources.ResourceController;
 import org.freeplane.core.util.MenuUtils;
+import org.freeplane.features.map.MapModel;
+import org.freeplane.features.map.NodeModel;
 import org.freeplane.features.mode.Controller;
 import org.freeplane.plugin.script.proxy.ScriptUtils;
 import org.freeplane.view.swing.map.MapView;
@@ -33,6 +36,10 @@ public class FreeplaneUtils {
 
       }
     });
+  }
+
+  public static NodeModel getSelectedNodeModel() {
+    return Controller.getCurrentModeController().getController().getSelection().getSelected();
   }
 
   public static Node getNodeById(String id) {
@@ -82,5 +89,24 @@ public class FreeplaneUtils {
   public static File getMapFile() {
     return Controller.getCurrentController().getMap().getFile();
   }
+
+  public static void createMapView(MapModel userMapModel) {
+    Controller.getCurrentModeController().getMapController().createMapView(userMapModel);
+  }
+
+  public static void changeToMapView(MapView mapView) {
+    org.freeplane.features.mode.Controller.getCurrentController().getMapViewManager()
+        .changeToMapView(mapView);
+  }
+
+  public static MapModel getMapModel() {
+    return org.freeplane.features.mode.Controller.getCurrentController().getMap();
+  }
+
+  public static List<MapView> getMapViews() {
+    return (List<MapView>) org.freeplane.features.mode.Controller.getCurrentController()
+        .getMapViewManager().getMapViewVector();
+  }
+
 
 }
